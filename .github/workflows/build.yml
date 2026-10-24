@@ -1,0 +1,29 @@
+name: Build and test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 10
+    env:
+      DI2_BUILD_DIR: ${{ runner.temp }}/dead-island2-uncut-launcher
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Check shell syntax
+        run: |
+          for script in script/*.sh; do bash -n "$script"; done
+      - name: Build and run isolated tests
+        run: ./script/build.sh
