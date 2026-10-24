@@ -5,6 +5,8 @@
 ._*
 *.dSYM/
 *.log
+__pycache__/
+*.py[cod]
 *.p12
 *.pfx
 *.key

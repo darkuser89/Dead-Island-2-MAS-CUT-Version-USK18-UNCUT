@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #import "LauncherConfig.h"
+#import "GameLocation.h"
 #import <AppKit/AppKit.h>
 #import <Security/Security.h>
 #import <os/log.h>
 #import <string.h>
 
-static NSString *const targetPath = @DI2_GAME_APP_PATH;
+static NSURL *targetApplicationURL(void) {
+    return DI2GameURLBesideLauncher(NSBundle.mainBundle.bundleURL);
+}
 static void fail(NSString *message) {
     os_log_error(OS_LOG_DEFAULT, "DeadIsland2 launcher error: %{public}s", message.UTF8String);
     NSAlert *alert = [NSAlert new];
@@ -48,14 +51,17 @@ static OSStatus validateOriginalApplication(NSURL *target) {
 @end
 @implementation LauncherDelegate
 - (void)applicationDidFinishLaunching:(NSNotification *)notification {
-    NSURL *target = [NSURL fileURLWithPath:targetPath isDirectory:YES];
+    NSURL *target = targetApplicationURL();
     NSBundle *game = [NSBundle bundleWithURL:target];
     if (![game.bundleIdentifier isEqualToString:@DI2_ORIGINAL_BUNDLE_ID]) {
-        fail(@"Die Original-App-Store-Version mit der Kennung com.plaion.DeadIsland2Usk wird unter /Applications/DeadIsland2.app benötigt.");
+        fail([NSString stringWithFormat:
+            @"Lege die unveränderte App-Store-Version DeadIsland2.app mit der Kennung "
+             "com.plaion.DeadIsland2Usk in denselben Ordner wie diesen Starthelfer. "
+             "Gesucht wird: %@", target.path]);
         [NSApp terminate:nil]; return;
     }
     for (NSRunningApplication *running in NSWorkspace.sharedWorkspace.runningApplications) {
-        if ([running.bundleURL.path isEqualToString:targetPath]) {
+        if (DI2URLsReferToSameFile(running.bundleURL, target)) {
             fail(@"Bitte beende zuerst die laufende App-Store-Version und starte danach diesen Helfer erneut. Laufende Spiele werden nicht automatisch beendet.");
             [NSApp terminate:nil]; return;
         }
@@ -96,9 +102,17 @@ static OSStatus validateOriginalApplication(NSURL *target) {
 @end
 int main(int argc, const char *argv[]) {
     @autoreleasepool {
-        if (argc == 2 && strcmp(argv[1], "--validate-only") == 0) {
-            OSStatus result = validateOriginalApplication(
-                [NSURL fileURLWithPath:targetPath isDirectory:YES]);
+        if (argc == 2 && strcmp(argv[1], "--game-path") == 0) {
+            puts(targetApplicationURL().path.fileSystemRepresentation);
+            return 0;
+        }
+        if ((argc == 2 || argc == 3) && strcmp(argv[1], "--validate-only") == 0) {
+            // An explicit path is for read-only build validation; launch always
+            // selects the adjacent app.
+            NSURL *target = argc == 3
+                ? [NSURL fileURLWithPath:@(argv[2]) isDirectory:YES]
+                : targetApplicationURL();
+            OSStatus result = validateOriginalApplication(target);
             printf("Original App Store signature / identifier / signed team: %d\n", (int)result);
             return result == errSecSuccess ? 0 : 2;
         }

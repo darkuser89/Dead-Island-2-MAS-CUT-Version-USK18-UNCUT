@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
 DI2_SOURCE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DI2_GAME_APP="/Applications/DeadIsland2.app"
+# Only used for optional build-time validation/icon import, not game selection
+# by the launcher. The running launcher always uses its adjacent app.
+DI2_GAME_APP="${DI2_GAME_APP:-/Applications/DeadIsland2.app}"
 DI2_APP_NAME="Dead Island 2 Uncut.app"
 
 if ! command -v python3 >/dev/null 2>&1; then

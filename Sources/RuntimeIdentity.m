@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #import "LauncherConfig.h"
+#import "GameLocation.h"
 #import <Foundation/Foundation.h>
 #import <CloudKit/CloudKit.h>
 #import <Security/SecTask.h>
@@ -30,6 +31,25 @@ static BOOL callerIsExecutable(void *address) {
     Dl_info image = {0};
     BOOL known = address && dladdr(address, &image);
     return known && image.dli_fbase == executableHeader;
+}
+
+static BOOL executableIsAdjacentGame(const char *canonical) {
+    Dl_info module = {0};
+    if (!dladdr((void *)&executableIsAdjacentGame, &module) || !module.dli_fname) {
+        return NO;
+    }
+    NSString *modulePath = [NSString stringWithUTF8String:module.dli_fname];
+    if (!modulePath) {
+        return NO;
+    }
+    // RuntimeIdentity.dylib lives inside Launcher.app/Contents/Resources.
+    NSURL *launcherURL = [NSURL fileURLWithPath:modulePath];
+    for (NSUInteger i = 0; i < 3; i++) {
+        launcherURL = launcherURL.URLByDeletingLastPathComponent;
+    }
+    NSURL *gameURL = DI2GameURLBesideLauncher(launcherURL);
+    NSURL *executableURL = [gameURL URLByAppendingPathComponent:@DI2_GAME_EXECUTABLE_RELATIVE_PATH];
+    return DI2URLsReferToSameFile([NSURL fileURLWithPath:@(canonical)], executableURL);
 }
 
 __attribute__((noinline))
@@ -126,7 +146,7 @@ static void installRuntimeIdentity(void) {
         realIdentifier = [mainBundle.bundleIdentifier copy];
         probeMode = [realIdentifier isEqualToString:probeIdentifier]
             && strcmp(strrchr(canonical, '/') + 1, "RuntimeProbe") == 0;
-        BOOL game = strcmp(canonical, DI2_GAME_EXECUTABLE_PATH) == 0
+        BOOL game = executableIsAdjacentGame(canonical)
             && [realIdentifier isEqualToString:originalIdentifier];
         if (!game && !probeMode) {
             os_log_error(auditLog, "REFUSED unsupported process; no hooks installed");

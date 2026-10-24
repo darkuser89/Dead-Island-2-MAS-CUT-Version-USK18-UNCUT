@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #pragma once
 
-#define DI2_GAME_APP_PATH "/Applications/DeadIsland2.app"
-#define DI2_GAME_EXECUTABLE_PATH DI2_GAME_APP_PATH "/Contents/MacOS/DeadIsland2"
+#define DI2_GAME_APP_NAME "DeadIsland2.app"
+#define DI2_GAME_EXECUTABLE_RELATIVE_PATH "Contents/MacOS/DeadIsland2"
 #define DI2_ORIGINAL_BUNDLE_ID "com.plaion.DeadIsland2Usk"
 #define DI2_RUNTIME_BUNDLE_ID "com.plaion.DeadIsland2"
 #define DI2_MANUFACTURER_TEAM_ID "XSBJ2Q9R2T"

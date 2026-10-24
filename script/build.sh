@@ -88,8 +88,9 @@ if [[ "$WITH_GAME_ICON" == 1 ]]; then
 fi
 /usr/bin/codesign --force --sign - --options runtime --timestamp=none "$APP"
 /usr/bin/codesign --verify --strict --verbose=2 "$APP"
+python3 "$DI2_SOURCE_ROOT/Tests/test_location.py" "$APP" "$TEST_ROOT"
 if [[ "$VALIDATE_GAME" == 1 ]]; then
-    "$APP/Contents/MacOS/Launcher" --validate-only
+    "$APP/Contents/MacOS/Launcher" --validate-only "$DI2_GAME_APP"
 fi
 
 # Retain the previous verified build until the replacement is ready.

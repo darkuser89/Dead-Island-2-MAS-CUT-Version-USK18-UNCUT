@@ -11,8 +11,10 @@ unveränderte Hersteller-App mit ihren ursprünglichen CloudKit-Berechtigungen.
 - Ein Mac mit Apple Silicon (`arm64`).
 - Xcode oder Xcode Command Line Tools mit macOS-SDK und Clang.
 - Python 3 für Pfad-, Prozess- und Installationsprüfungen.
-- Für die Nutzung: die unveränderte **USK-App-Store-Version** unter
-  `/Applications/DeadIsland2.app`, Bundle-ID `com.plaion.DeadIsland2Usk`.
+- Für die Nutzung: die unveränderte **USK-App-Store-Version** mit dem Dateinamen
+  `DeadIsland2.app`, Bundle-ID `com.plaion.DeadIsland2Usk`.
+- Spiel und Launcher müssen im **selben Ordner** liegen. Der Ordner ist frei
+  wählbar, zum Beispiel `Programme` oder ein Spieleordner auf einem externen Laufwerk.
 
 Das Deployment-Ziel ist macOS 14.0. Das ist keine vollständige Zusage für jede
 macOS- oder Spielversion. App-Updates können die benötigten Berechtigungen oder
@@ -53,12 +55,35 @@ Optionen:
 ./script/build.sh --help
 ```
 
+Die optionalen Spielprüfungen und der Icon-Import lesen standardmäßig aus
+`/Applications/DeadIsland2.app`. Liegt deine Installation woanders, gib den Pfad
+für diese Build-Schritte an:
+
+```sh
+DI2_GAME_APP="/Volumes/Spiele/DeadIsland2.app" ./script/build.sh --with-game-icon --validate-game
+```
+
 Ohne `--with-game-icon` wird kein Spiel-Asset eingebunden. Das Repository enthält
 keine Spiel-Dateien, Spiel-Icons, Zertifikate oder privaten Signierschlüssel.
 
 ## Installieren und starten
 
-Beende das Spiel und einen laufenden Starthelfer regulär. Dann:
+Beende das Spiel und einen laufenden Starthelfer regulär. Lege die gebaute
+`Dead Island 2 Uncut.app` neben deine `DeadIsland2.app` und öffne den Launcher:
+
+```text
+Dein Spieleordner/
+├── DeadIsland2.app
+└── Dead Island 2 Uncut.app
+```
+
+Beide Apps lassen sich gemeinsam in einen anderen Ordner verschieben. Keine
+Pfadangabe oder Konfiguration ist für den Start nötig. Der Dateiname des Spiels
+muss `DeadIsland2.app` bleiben. Fehlt die passende App neben dem Launcher,
+meldet dieser den gesuchten Pfad und startet keine andere Installation.
+
+Liegt das Spiel in `/Applications`, kann der mitgelieferte Installer den Launcher
+dort daneben ablegen:
 
 ```sh
 ./script/install.sh
@@ -77,8 +102,8 @@ werden nicht ersetzt. Ein fehlgeschlagener Austausch wird zurückgenommen;
 scheitert auch die Rücknahme, bleibt die vorherige App zur Wiederherstellung erhalten.
 Die Installation selbst startet kein Spiel.
 
-Der Launcher startet ausschließlich die App-Store-App unter
-`/Applications/DeadIsland2.app`. Eine bereits laufende Spielinstanz wird nicht
+Der Launcher startet ausschließlich die passende App-Store-App im eigenen
+übergeordneten Ordner. Eine bereits laufende Spielinstanz wird nicht
 automatisch beendet. Für einen Uncut-Start den Starthelfer verwenden.
 
 Für die lokale Entwicklung gibt es weiterhin den kombinierten Einstieg:
@@ -90,11 +115,13 @@ Für die lokale Entwicklung gibt es weiterhin den kombinierten Einstieg:
 
 ## Funktionsweise
 
-1. Der Launcher prüft die Apple-Code-Signatur, die originale USK-App-ID und die
-   signierte Hersteller-Teamkennung.
+1. Der Launcher ermittelt `DeadIsland2.app` neben seinem eigenen App-Bundle,
+   unabhängig vom Arbeitsverzeichnis. Er prüft die Apple-Code-Signatur, die
+   originale USK-App-ID und die signierte Hersteller-Teamkennung.
 2. Er startet das Originalspiel über `NSWorkspace`. `DYLD_INSERT_LIBRARIES` wird
    ausschließlich in der Umgebung dieses neuen Spielprozesses gesetzt.
-3. Das externe Modul ersetzt drei `NSBundle`-Abfragen. Nur Aufrufe aus dem
+3. Das externe Modul prüft ebenfalls, dass der Spielprozess zur benachbarten
+   `DeadIsland2.app` gehört, und ersetzt drei `NSBundle`-Abfragen. Nur Aufrufe aus dem
    ausführbaren Hauptprogramm erhalten die Laufzeitkennung
    `com.plaion.DeadIsland2` und den vorbereiteten `USKVersion`-Wert.
 4. Aufrufe aus anderen Mach-O-Images erhalten die Originalwerte. Andere Bundles
@@ -106,8 +133,9 @@ signiert. Es werden keine globalen DYLD-Einstellungen gesetzt und keine
 macOS-Sicherheitseinstellungen geändert. Die Steam-Installation wird nicht geöffnet
 oder verändert.
 
-Die Pfad- und Signaturprüfungen sind auf die originale App-Store-USK-Fassung
-begrenzt. Die Vorprüfung validiert Code und signierte Metadaten; sie führt beim
+Die Signaturprüfung ist auf die originale App-Store-USK-Fassung begrenzt.
+Der gemeinsame Ordner ist nicht auf `/Applications` beschränkt.
+Die Vorprüfung validiert Code und signierte Metadaten; sie führt beim
 Start keinen vollständigen Inhaltsvergleich sämtlicher großer Spielpakete durch.
 
 ## iCloud und Diagnose
@@ -123,6 +151,8 @@ Bei Bedarf kann der Launcher mit einem einmaligen lesenden Test gestartet werden
 ```sh
 open -n --env DI2_LAUNCHER_CLOUD_CHECK=1 "/Applications/Dead Island 2 Uncut.app"
 ```
+
+Passe den Launcher-Pfad im Diagnosebefehl an deinen gemeinsamen Ordner an.
 
 Dieser Test prüft Kontostatus und Erreichbarkeit der privaten Datenbank. Er
 fordert keine Cloud-Schreiboperation an und protokolliert keine Spielstände
@@ -150,6 +180,13 @@ Bibliothek:
 - die Begrenzung des zusätzlichen SKU-Werts auf die Spielseite;
 - die unveränderte `Info.plist` auf dem Datenträger;
 - die Signatur des gebauten Launchers.
+
+Ein zusätzlicher Integrationstest verschiebt den Launcher zusammen mit einer
+synthetischen Spiel-App. Er prüft die Auswahl der benachbarten App sowie die
+Laufzeitumstellung vor und nach dem Verschieben, mit Leerzeichen und Umlauten
+im Pfad und einem anderen Arbeitsverzeichnis. Ein abgetrennter Spielprozess
+oder eine falsche App-ID darf keine Umstellung erhalten. Dabei wird kein echtes
+Spiel kopiert, verschoben oder gestartet.
 
 Die CI baut auf einem macOS-ARM64-Runner. Sie startet das Spiel nicht und prüft
 weder Uncut im Gameplay noch eine tatsächliche iCloud-Synchronisierung.
