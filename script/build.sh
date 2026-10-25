@@ -80,6 +80,7 @@ AFTER="$(/usr/bin/shasum -a 256 "$TEST_ROOT/RuntimeProbe.app/Contents/Info.plist
 xcrun clang "${COMMON_FLAGS[@]}" -framework AppKit -framework Security \
     "$DI2_SOURCE_ROOT/Sources/Launcher.m" -o "$APP/Contents/MacOS/Launcher"
 cp "$DI2_SOURCE_ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
+cp "$DI2_SOURCE_ROOT/LICENSE" "$DI2_SOURCE_ROOT/README.md" "$APP/Contents/Resources/"
 if [[ "$WITH_GAME_ICON" == 1 ]]; then
     ICON="$DI2_GAME_APP/Contents/Resources/DeadIsland.icns"
     [[ -f "$ICON" ]] || { printf 'Das lokale Spiel-Icon fehlt: %s\n' "$ICON" >&2; exit 1; }

@@ -1,4 +1,4 @@
-name: Build and test
+name: Build, test and release
 
 on:
   push:
@@ -16,6 +16,8 @@ jobs:
   macos:
     runs-on: macos-15
     timeout-minutes: 10
+    outputs:
+      version: ${{ steps.package.outputs.version }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -25,3 +27,66 @@ jobs:
           for script in script/*.sh; do bash -n "$script"; done
       - name: Build and run isolated tests
         run: DI2_BUILD_DIR="$RUNNER_TEMP/dead-island2-uncut-launcher" ./script/build.sh
+      - name: Package and verify download
+        id: package
+        shell: bash
+        run: |
+          version="$(/usr/bin/plutil -extract CFBundleShortVersionString raw Resources/Info.plist)"
+          if [[ "$GITHUB_REF" == refs/tags/* && "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "Tag muss zur App-Version passen: v$version" >&2
+            exit 1
+          fi
+          DI2_BUILD_DIR="$RUNNER_TEMP/dead-island2-uncut-launcher" ./script/package.sh
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Upload packaged app
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: Dead-Island-2-Uncut-macOS-arm64
+          path: ${{ runner.temp }}/dead-island2-uncut-launcher/release/*
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: macos
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified app
+        uses: actions/download-artifact@v8
+        with:
+          name: Dead-Island-2-Uncut-macOS-arm64
+          path: ${{ runner.temp }}/launcher-release
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APP_VERSION: ${{ needs.macos.outputs.version }}
+          RELEASE_DIR: ${{ runner.temp }}/launcher-release
+        shell: bash
+        run: |
+          cd "$RELEASE_DIR"
+          shasum -a 256 -c ./*.sha256
+          cat > "$RUNNER_TEMP/release-notes.md" <<'NOTES'
+          macOS-Launcher für Apple Silicon. ZIP entpacken und die enthaltene
+          „Dead Island 2 Uncut.app“ neben die eigene unveränderte „DeadIsland2.app“ legen.
+
+          Der Launcher ist ad-hoc signiert, aber nicht Apple-notarisiert.
+          macOS kann beim ersten Öffnen eine gesonderte Bestätigung verlangen.
+          Der Download enthält keine Spiel-Dateien und kein Spiel-Icon.
+
+          GitHub hat Build, isolierte Laufzeit-/Ordnerwechseltests und ZIP-Prüfung ausgeführt.
+          Gameplay und geräteübergreifender iCloud-Abgleich wurden dabei nicht getestet.
+          Die SHA-256-Prüfsumme liegt als eigene Datei bei.
+
+          Lizenz: GPL-3.0-only. Der vollständige zugehörige Quellcode steht unter
+          „Source code“ beim selben Versions-Tag bereit. README und Lizenztext sind
+          zusätzlich in der App unter Contents/Resources enthalten.
+          NOTES
+          gh release create "$GITHUB_REF_NAME" ./*.zip ./*.sha256 \
+            --repo "$GITHUB_REPOSITORY" --verify-tag --draft \
+            --title "Dead Island 2 Uncut Launcher $APP_VERSION" \
+            --notes-file "$RUNNER_TEMP/release-notes.md"
+          gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest

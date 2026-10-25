@@ -6,6 +6,21 @@ unveränderte Hersteller-App mit ihren ursprünglichen CloudKit-Berechtigungen.
 
 **Version 1.0 · Apple Silicon · GPL-3.0-only**
 
+## Fertiger Download
+
+Unter [Releases](https://github.com/darkuser89/Dead-Island-2-MAS-CUT-Version-USK18-UNCUT/releases/latest)
+gibt es den von GitHub Actions gebauten Launcher als
+`Dead-Island-2-Uncut-macOS-arm64.zip`, dazu eine SHA-256-Prüfsumme.
+Die ZIP-Datei entpacken und den Launcher neben die eigene `DeadIsland2.app` legen.
+Ein Entwicklerkonto oder eine lokale Build-Umgebung ist für den Download nicht nötig.
+
+Der Download ist **ad-hoc signiert, nicht Apple-notarisiert**. macOS kann ihn beim
+ersten Öffnen blockieren. Wenn du der Quelle vertraust, beschreibt
+[Apple das gezielte Öffnen unter „Datenschutz und Sicherheit“](https://support.apple.com/de-de/102445).
+Die automatische Veröffentlichung verwendet keine Developer-ID-Zertifikate und
+verändert keine macOS-Sicherheitseinstellungen. Das Spiel-Icon ist im Download
+nicht enthalten; die lokale Build-Option bleibt verfügbar.
+
 ## Voraussetzungen
 
 - Ein Mac mit Apple Silicon (`arm64`).
@@ -208,6 +223,36 @@ LICENSE       Vollständiger GPL-3.0-Lizenztext
 Builds, Apps, Objektdateien, Logs und lokale Editor-Metadaten werden nicht in Git
 aufgenommen. Das Spiel-Icon wird ausschließlich auf ausdrückliche Build-Option
 aus der lokalen Original-App gelesen.
+
+## Automatische Builds und Releases
+
+GitHub Actions baut und testet Änderungen bei Pushes und Pull Requests. Dabei
+wird auch das ZIP erzeugt, wieder entpackt und auf gültige Signatur und
+ausführbaren Launcher geprüft. Es werden keine echten Spiele benötigt oder gestartet.
+
+Ein gepushter Versions-Tag `v1.0` erzeugt nach erfolgreichen Prüfungen automatisch
+ein Release mit ZIP und Prüfsumme. Der Tag muss exakt zur
+`CFBundleShortVersionString` in `Resources/Info.plist` passen. Für eine neue
+Version zuerst diese Versionsnummer und die Buildnummer aktualisieren, dann
+den passenden neuen Tag anlegen. Vorhandene Releases werden nicht ersetzt.
+
+Beim manuellen Start über **Actions → Build, test and release → Run workflow**
+steht das ZIP mit Prüfsumme einen Tag lang als Workflow-Artefakt bereit. Dadurch
+wird kein Release veröffentlicht. Dauerhafte Downloads entstehen nur aus Versions-Tags.
+
+Der Build-Job hat ausschließlich Lesezugriff. Nur der separate Release-Job erhält
+Schreibzugriff zum Veröffentlichen. Zusätzliche GitHub-Secrets sind dafür nicht nötig.
+README und GPL-Lizenztext liegen auch in der gebauten App unter `Contents/Resources`.
+
+Lokal lässt sich nach einem Build dasselbe Downloadpaket erzeugen:
+
+```sh
+./script/build.sh
+./script/package.sh
+```
+
+Das Paket liegt unter `release/` im externen Buildordner, zusammen mit der
+Prüfsumme. Diese Dateien gehören nicht in den Quellcode-Checkout.
 
 ## Lizenz
 
