@@ -11,6 +11,18 @@ static BOOL equalValues(id left, id right) {
     return left == right || [left isEqual:right];
 }
 
+// Model Apple login code linked into the game's executable, not a framework.
+// Multiple calls prevent a tail call from hiding this function as the caller.
+__attribute__((noinline))
+static NSArray *FOnlineExternalUIMacAuthenticationProbe(void) {
+    NSBundle *bundle = NSBundle.mainBundle;
+    return @[bundle.bundleIdentifier,
+        bundle.infoDictionary[@"CFBundleIdentifier"],
+        [bundle objectForInfoDictionaryKey:@"CFBundleIdentifier"],
+        bundle.infoDictionary[@"USKVersion"] ?: NSNull.null,
+        [bundle objectForInfoDictionaryKey:@"USKVersion"] ?: NSNull.null];
+}
+
 int main(int argc, const char *argv[]) {
     @autoreleasepool {
         BOOL expectOverride = !(argc == 2 && strcmp(argv[1], "--expect-inactive") == 0);
@@ -45,6 +57,19 @@ int main(int argc, const char *argv[]) {
             fputs("FAIL: runtime-only SKU leaked into an external-image call\n", stderr);
             return 5;
         }
+        NSArray *appleValues = FOnlineExternalUIMacAuthenticationProbe();
+        for (NSUInteger index = 0; index < 3; index++) {
+            if (![appleValues[index] isEqual:diskIdentifier]) {
+                fputs("FAIL: Apple login code received the runtime identity\n", stderr);
+                return 7;
+            }
+        }
+        for (NSUInteger index = 3; index < 5; index++) {
+            if (![appleValues[index] isEqual:(diskInfo[@"USKVersion"] ?: NSNull.null)]) {
+                fputs("FAIL: runtime SKU leaked into Apple login code\n", stderr);
+                return 8;
+            }
+        }
         NSBundle *foundation = [NSBundle bundleForClass:NSBundle.class];
         if (![foundation.bundleIdentifier isEqualToString:frameworkIdentifierForBundle(foundation)]
             || [foundation.bundleIdentifier isEqualToString:@DI2_RUNTIME_BUNDLE_ID]) {
@@ -52,7 +77,7 @@ int main(int argc, const char *argv[]) {
             return 6;
         }
         puts(expectOverride
-            ? "PASS: executable identity override; external-image and non-main bundle isolation; SKU isolation"
+            ? "PASS: game identity override; Apple login, external-image and non-main bundle isolation; SKU isolation"
             : "PASS: unsupported process kept original identity and SKU");
         return 0;
     }

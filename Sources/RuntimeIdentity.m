@@ -27,10 +27,29 @@ static id (*originalObjectForKey)(id, SEL, NSString *);
 static BOOL probeMode;
 static const struct mach_header *executableHeader;
 
-static BOOL callerIsExecutable(void *address) {
+static BOOL callerReceivesRuntimeIdentity(void *address) {
     Dl_info image = {0};
     BOOL known = address && dladdr(address, &image);
-    return known && image.dli_fbase == executableHeader;
+    if (!known || image.dli_fbase != executableHeader) {
+        return NO;
+    }
+    // The game's Apple login/token code is linked into MH_EXECUTE too. Giving
+    // it the Uncut identifier selects the wrong Sign in with Apple client and
+    // separates it from the original app's saved authorization.
+    const char *symbol = image.dli_sname;
+    if (symbol && (strstr(symbol, "FOnlineExternalUIMac")
+        || strstr(symbol, "FOnlineIdentityMac")
+        || strstr(symbol, "FOnlineSubsystemMac")
+        || strstr(symbol, "FUserOnlineAccountApple")
+        || strstr(symbol, "SignInWithApple")
+        || strstr(symbol, "MacCloudStorage"))) {
+        static dispatch_once_t once;
+        dispatch_once(&once, ^{
+            os_log(auditLog, "APPLE authentication retains original bundle identity; caller=%{public}s; no credentials read", symbol);
+        });
+        return NO;
+    }
+    return YES;
 }
 
 static BOOL executableIsAdjacentGame(const char *canonical) {
@@ -56,7 +75,7 @@ __attribute__((noinline))
 static NSString *runtimeBundleIdentifier(NSBundle *self, SEL selector) {
     void *caller = __builtin_extract_return_addr(__builtin_return_address(0));
     NSString *actual = originalBundleIdentifier(self, selector);
-    if (self == mainBundle && callerIsExecutable(caller)) {
+    if (self == mainBundle && callerReceivesRuntimeIdentity(caller)) {
         static dispatch_once_t once;
         dispatch_once(&once, ^{
             os_log(auditLog, "GAME bundleIdentifier override active; disk/signing identity unchanged");
@@ -69,7 +88,7 @@ static NSString *runtimeBundleIdentifier(NSBundle *self, SEL selector) {
 __attribute__((noinline))
 static NSDictionary *runtimeInfoDictionary(NSBundle *self, SEL selector) {
     void *caller = __builtin_extract_return_addr(__builtin_return_address(0));
-    if (self == mainBundle && callerIsExecutable(caller)) {
+    if (self == mainBundle && callerReceivesRuntimeIdentity(caller)) {
         static dispatch_once_t once;
         dispatch_once(&once, ^{
             os_log(auditLog, "GAME infoDictionary override active; original dictionary retained for frameworks");
@@ -82,7 +101,7 @@ static NSDictionary *runtimeInfoDictionary(NSBundle *self, SEL selector) {
 __attribute__((noinline))
 static id runtimeObjectForKey(NSBundle *self, SEL selector, NSString *key) {
     void *caller = __builtin_extract_return_addr(__builtin_return_address(0));
-    if (self == mainBundle && callerIsExecutable(caller)) {
+    if (self == mainBundle && callerReceivesRuntimeIdentity(caller)) {
         if ([key isEqualToString:@"CFBundleIdentifier"]) {
             return gameIdentifier;
         }

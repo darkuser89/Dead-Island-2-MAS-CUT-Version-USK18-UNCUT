@@ -4,7 +4,7 @@ Externer macOS-Launcher für die App-Store-Version von **Dead Island 2**. Er
 beeinflusst ausgewählte Identitätsabfragen zur Laufzeit und erhält die
 unveränderte Hersteller-App mit ihren ursprünglichen CloudKit-Berechtigungen.
 
-**Version 1.0 · Apple Silicon · GPL-3.0-only**
+**Version 1.0.1 · Apple Silicon · GPL-3.0-only**
 
 ## Fertiger Download
 
@@ -139,8 +139,11 @@ Für die lokale Entwicklung gibt es weiterhin den kombinierten Einstieg:
    `DeadIsland2.app` gehört, und ersetzt drei `NSBundle`-Abfragen. Nur Aufrufe aus dem
    ausführbaren Hauptprogramm erhalten die Laufzeitkennung
    `com.plaion.DeadIsland2` und den vorbereiteten `USKVersion`-Wert.
-4. Aufrufe aus anderen Mach-O-Images erhalten die Originalwerte. Andere Bundles
-   werden ebenfalls nicht umgestellt.
+4. Aufrufe aus anderen Mach-O-Images erhalten die Originalwerte. Das gilt auch
+   für erkannte Apple-Anmelde-, Token- und Cloudspeicher-Funktionen, die direkt
+   ins Hauptprogramm eingebunden sind. Diese behalten die originale App-Kennung,
+   damit die Auswahl des Apple-Anmeldeclients nicht umgestellt wird. Andere
+   Bundles werden ebenfalls nicht umgestellt.
 
 Der Ansatz verwendet die bereits in der Original-App vorhandenen Berechtigungen
 für externe Bibliotheken. Die Spiele-App wird nicht kopiert, gepatcht oder neu
@@ -159,6 +162,11 @@ Die echte signierte App-Identität und die CloudKit-Berechtigungen bleiben erhal
 Das Spiel verwendet weiterhin seinen ursprünglichen CloudKit-Container.
 Ein vorhandener CloudKit-Zugang allein beweist noch keinen erfolgreichen
 Spielstand-Abgleich zwischen zwei Geräten.
+
+Version 1.0.1 nimmt den Apple-Anmelde- und Token-Code innerhalb des Spiels von
+der Identitätsänderung aus. Im lokalen Spieltest wurden der Start ohne erneute
+Apple-Anmeldung und weiterhin funktionierendes Uncut bestätigt. Eine CloudKit-
+Ablehnung durch Benutzereinstellungen wird dadurch nicht automatisch aufgehoben.
 
 Zusätzliche CloudKit-Diagnosen sind im Quellcode standardmäßig ausgeschaltet.
 Bei Bedarf kann der Launcher mit einem einmaligen lesenden Test gestartet werden:
@@ -192,6 +200,7 @@ Bibliothek:
 - die Umstellung von Abfragen aus dem ausführbaren Hauptprogramm;
 - unveränderte Werte für Aufrufe aus einem anderen Mach-O-Image;
 - unveränderte Werte für andere Bundles;
+- unveränderte Kennung und SKU für Apple-Anmeldecode im Hauptprogramm;
 - die Begrenzung des zusätzlichen SKU-Werts auf die Spielseite;
 - die unveränderte `Info.plist` auf dem Datenträger;
 - die Signatur des gebauten Launchers.
@@ -208,6 +217,11 @@ weder Uncut im Gameplay noch eine tatsächliche iCloud-Synchronisierung.
 Diese Punkte müssen nach relevanten Änderungen mit der eigenen Spielinstallation
 geprüft werden. Koop, andere Spielversionen und andere macOS-Versionen sind
 gesondert zu prüfen.
+
+Die Ausnahme für Apple-Anmeldecode erkennt dessen Funktionsnamen. Die
+automatischen Tests prüfen diese Trennung; sie melden sich nicht bei einem
+Apple Account an. Nach Änderungen am Spiel sind die Anmeldung und das
+Uncut-Verhalten gemeinsam im Spiel zu kontrollieren.
 
 ## Projektstruktur
 
